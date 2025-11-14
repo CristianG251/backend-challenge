@@ -1,0 +1,204 @@
+name: CI/CD Pipeline - Task Management API
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Job 1: Run Python tests
+  test-python:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing
+      
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ -v
+      
+      - name: Check code coverage
+        run: |
+          pytest --cov=src --cov-report=term-missing --cov-fail-under=90
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+  
+  # Job 2: Code quality checks
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      
+      - name: Check code formatting with Black
+        run: |
+          black --check src tests
+      
+      - name: Run linter (Ruff)
+        run: |
+          ruff check src tests
+      
+      - name: Run type checking (Pyright)
+        run: |
+          pyright src tests
+  
+  # Job 3: Validate CDK infrastructure
+  validate-infrastructure:
+    name: Validate CDK Infrastructure
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: infrastructure/package-lock.json
+      
+      - name: Install CDK dependencies
+        working-directory: ./infrastructure
+        run: npm ci
+      
+      - name: Build TypeScript
+        working-directory: ./infrastructure
+        run: npm run build
+      
+      - name: Run TypeScript linter
+        working-directory: ./infrastructure
+        run: npm run lint
+        continue-on-error: true
+      
+      - name: Synthesize CloudFormation templates
+        working-directory: ./infrastructure
+        run: npx cdk synth
+      
+      - name: Upload CloudFormation templates
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudformation-templates
+          path: infrastructure/cdk.out/*.template.json
+          retention-days: 30
+  
+  # Job 4: Security scanning
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+  
+  # Job 5: Deploy to AWS (optional - only on main branch)
+  deploy:
+    name: Deploy to AWS
+    needs: [test-python, code-quality, validate-infrastructure]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Only deploy on main branch pushes after all tests pass
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: infrastructure/package-lock.json
+      
+      - name: Install CDK dependencies
+        working-directory: ./infrastructure
+        run: npm ci
+      
+      - name: Build TypeScript
+        working-directory: ./infrastructure
+        run: npm run build
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Deploy to AWS
+        working-directory: ./infrastructure
+        run: |
+          npx cdk deploy --all --require-approval never
+      
+      - name: Get API Key
+        id: get-api-key
+        run: |
+          API_KEY_ID=$(aws cloudformation describe-stacks \
+            --stack-name TaskManagement-dev-ApiStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiKeyId`].OutputValue' \
+            --output text)
+          echo "API_KEY_ID=$API_KEY_ID" >> $GITHUB_OUTPUT
+      
+      - name: Post deployment summary
+        run: |
+          echo "### Deployment Successful! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** Production" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** us-east-1" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Retrieve API Key using: \`aws apigateway get-api-key --api-key ${{ steps.get-api-key.outputs.API_KEY_ID }} --include-value\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. View CloudWatch Dashboard in AWS Console" >> $GITHUB_STEP_SUMMARY
+          echo "3. Check X-Ray traces for distributed tracing" >> $GITHUB_STEP_SUMMARY

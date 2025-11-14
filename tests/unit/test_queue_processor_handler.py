@@ -276,9 +276,11 @@ class TestErrorHandling:
 
 class TestAdditionalErrorHandling:
     """Additional tests for error handling to improve coverage."""
-    
+
     def test_process_task_wraps_unexpected_exceptions(self) -> None:
         """Test that unexpected exceptions are wrapped in ProcessingError."""
+        # Create task data with invalid structure that will cause an error
+        # The task_data.get("task_id") will work, but accessing required fields will fail
         task_data = {
             "task_id": "12345678-1234-1234-1234-123456789012",
             "title": "Test Task",
@@ -286,12 +288,16 @@ class TestAdditionalErrorHandling:
             "priority": "high",
             "created_at": "2025-11-13T10:00:00Z",
         }
-        
-        # Patch logger.info to raise an unexpected exception
-        with patch.object(handler.logger, 'info', side_effect=RuntimeError("Unexpected error")):
+
+        # Patch the validation loop to raise an unexpected exception
+        # This happens inside the try block so it will be caught and wrapped
+        with patch.object(handler, 'logger') as mock_logger:
+            # Make the first logger.info call work, but the second one (after validation) fail
+            mock_logger.info.side_effect = [None, RuntimeError("Unexpected error")]
+
             with pytest.raises(handler.ProcessingError) as exc_info:
                 handler.process_task(task_data)
-            
+
             assert "Failed to process task" in str(exc_info.value)
     
     def test_lambda_handler_handles_unexpected_exceptions_in_batch(self) -> None:

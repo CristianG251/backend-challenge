@@ -38,7 +38,7 @@ export class QueueStack extends cdk.Stack {
       },
     });
 
-    // Create processor Lambda function
+    // Create processor Lambda function with X-Ray tracing
     this.processorLambda = new lambda.Function(this, 'ProcessorLambda', {
       functionName: `task-processor`,
       runtime: lambda.Runtime.PYTHON_3_12,
@@ -57,6 +57,8 @@ export class QueueStack extends cdk.Stack {
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       }),
       reservedConcurrentExecutions: 10,
+      // BONUS: Enable X-Ray distributed tracing
+      tracing: lambda.Tracing.ACTIVE,
     });
 
     // Grant Lambda permissions to read from queue

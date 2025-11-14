@@ -392,6 +392,13 @@ class TestErrorHandling:
     @mock_aws
     def test_send_to_queue_handles_client_error(self) -> None:
         """Test that ClientError in send_to_queue is properly raised."""
+        # Setup: Create SQS client but DON'T create a queue
+        # This will cause send_message to fail with ClientError
+
+        # Set a non-existent queue URL
+        os.environ["TASK_QUEUE_URL"] = "https://sqs.us-east-1.amazonaws.com/123456789012/nonexistent-queue.fifo"
+
+        # Reset the client so it picks up the new URL
         handler._sqs_client = None
 
         task_data = {
@@ -400,17 +407,12 @@ class TestErrorHandling:
             "priority": "high",
         }
 
-        # Mock the SQS client to raise ClientError
-        with patch.object(handler, '_get_sqs_client') as mock_get_client:
-            mock_sqs = MagicMock()
-            mock_sqs.send_message.side_effect = ClientError(
-                {'Error': {'Code': 'NonExistentQueue', 'Message': 'Queue does not exist'}},
-                'SendMessage'
-            )
-            mock_get_client.return_value = mock_sqs
+        # Should raise ClientError when trying to send to non-existent queue
+        with pytest.raises(ClientError) as exc_info:
+            handler.send_to_queue(task_data)
 
-            with pytest.raises(ClientError):
-                handler.send_to_queue(task_data)
+        # Verify it's the right kind of error
+        assert "NonExistentQueue" in str(exc_info.value) or "QueueDoesNotExist" in str(exc_info.value)
     
     @mock_aws  
     def test_lambda_handler_handles_sqs_client_error(self) -> None:
