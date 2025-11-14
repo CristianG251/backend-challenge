@@ -134,63 +134,63 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
   
-    # Job 5: Deploy to AWS (optional - only on main branch)
-  deploy:
-    name: Deploy to AWS
-    needs: [test-python, code-quality, validate-infrastructure]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    # Only deploy on main branch pushes after all tests pass
+  #   # Job 5: Deploy to AWS (optional - only on main branch)
+  # deploy:
+  #   name: Deploy to AWS
+  #   needs: [test-python, code-quality, validate-infrastructure]
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   # Only deploy on main branch pushes after all tests pass
     
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
       
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: infrastructure/package-lock.json
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '18'
+  #         cache: 'npm'
+  #         cache-dependency-path: infrastructure/package-lock.json
       
-      - name: Install CDK dependencies
-        working-directory: ./infrastructure
-        run: npm ci
+  #     - name: Install CDK dependencies
+  #       working-directory: ./infrastructure
+  #       run: npm ci
       
-      - name: Build TypeScript
-        working-directory: ./infrastructure
-        run: npm run build
+  #     - name: Build TypeScript
+  #       working-directory: ./infrastructure
+  #       run: npm run build
       
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: us-east-1
       
-      - name: Deploy to AWS
-        working-directory: ./infrastructure
-        run: |
-          npx cdk deploy --all --require-approval never
+  #     - name: Deploy to AWS
+  #       working-directory: ./infrastructure
+  #       run: |
+  #         npx cdk deploy --all --require-approval never
       
-      - name: Get API Key
-        id: get-api-key
-        run: |
-          API_KEY_ID=$(aws cloudformation describe-stacks \
-            --stack-name TaskManagement-dev-ApiStack \
-            --query 'Stacks[0].Outputs[?OutputKey==`ApiKeyId`].OutputValue' \
-            --output text)
-          echo "API_KEY_ID=$API_KEY_ID" >> $GITHUB_OUTPUT
+  #     - name: Get API Key
+  #       id: get-api-key
+  #       run: |
+  #         API_KEY_ID=$(aws cloudformation describe-stacks \
+  #           --stack-name TaskManagement-dev-ApiStack \
+  #           --query 'Stacks[0].Outputs[?OutputKey==`ApiKeyId`].OutputValue' \
+  #           --output text)
+  #         echo "API_KEY_ID=$API_KEY_ID" >> $GITHUB_OUTPUT
       
-      - name: Post deployment summary
-        run: |
-          echo "### Deployment Successful! ðŸš€" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** Production" >> $GITHUB_STEP_SUMMARY
-          echo "**Region:** us-east-1" >> $GITHUB_STEP_SUMMARY
-          echo "**Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
-          echo "1. Retrieve API Key using: \`aws apigateway get-api-key --api-key ${{ steps.get-api-key.outputs.API_KEY_ID }} --include-value\`" >> $GITHUB_STEP_SUMMARY
-          echo "2. View CloudWatch Dashboard in AWS Console" >> $GITHUB_STEP_SUMMARY
-          echo "3. Check X-Ray traces for distributed tracing" >> $GITHUB_STEP_SUMMARY
+  #     - name: Post deployment summary
+  #       run: |
+  #         echo "### Deployment Successful! ðŸš€" >> $GITHUB_STEP_SUMMARY
+  #         echo "" >> $GITHUB_STEP_SUMMARY
+  #         echo "**Environment:** Production" >> $GITHUB_STEP_SUMMARY
+  #         echo "**Region:** us-east-1" >> $GITHUB_STEP_SUMMARY
+  #         echo "**Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+  #         echo "" >> $GITHUB_STEP_SUMMARY
+  #         echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+  #         echo "1. Retrieve API Key using: \`aws apigateway get-api-key --api-key ${{ steps.get-api-key.outputs.API_KEY_ID }} --include-value\`" >> $GITHUB_STEP_SUMMARY
+  #         echo "2. View CloudWatch Dashboard in AWS Console" >> $GITHUB_STEP_SUMMARY
+  #         echo "3. Check X-Ray traces for distributed tracing" >> $GITHUB_STEP_SUMMARY
