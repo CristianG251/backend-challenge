@@ -5,13 +5,13 @@ Tests task validation, sanitization, and queue integration.
 
 import json
 import os
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch
 
+import boto3
 import pytest
 from botocore.exceptions import ClientError
 from moto import mock_aws
-import boto3
 
 # Set environment variables before importing handler
 os.environ["TASK_QUEUE_URL"] = (
@@ -24,7 +24,7 @@ from src.api import handler
 
 
 @pytest.fixture
-def valid_task_data() -> Dict[str, Any]:
+def valid_task_data() -> dict[str, Any]:
     """Fixture providing valid task data."""
     return {
         "title": "Test Task",
@@ -35,7 +35,7 @@ def valid_task_data() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def api_gateway_event(valid_task_data: Dict[str, Any]) -> Dict[str, Any]:
+def api_gateway_event(valid_task_data: dict[str, Any]) -> dict[str, Any]:
     """Fixture providing API Gateway event."""
     return {
         "body": json.dumps(valid_task_data),
@@ -59,7 +59,7 @@ def lambda_context() -> MagicMock:
 class TestValidateTask:
     """Tests for task validation function."""
 
-    def test_valid_task_with_all_fields(self, valid_task_data: Dict[str, Any]) -> None:
+    def test_valid_task_with_all_fields(self, valid_task_data: dict[str, Any]) -> None:
         """Test validation passes for task with all fields."""
         is_valid, error = handler.validate_task(valid_task_data)
         assert is_valid is True
@@ -226,7 +226,7 @@ class TestSendToQueue:
     """Tests for sending tasks to SQS queue."""
 
     @mock_aws
-    def test_send_to_queue_success(self, valid_task_data: Dict[str, Any]) -> None:
+    def test_send_to_queue_success(self, valid_task_data: dict[str, Any]) -> None:
         """Test successfully sending task to queue."""
         # Create queue within the test
         sqs = boto3.client("sqs", region_name="us-east-1")
@@ -249,7 +249,7 @@ class TestSendToQueue:
 
     @mock_aws
     def test_send_to_queue_includes_metadata(
-        self, valid_task_data: Dict[str, Any]
+        self, valid_task_data: dict[str, Any]
     ) -> None:
         """Test message includes task_id and created_at metadata."""
         # Create queue within the test
@@ -287,7 +287,7 @@ class TestLambdaHandler:
     @mock_aws
     def test_successful_task_creation(
         self,
-        api_gateway_event: Dict[str, Any],
+        api_gateway_event: dict[str, Any],
         lambda_context: MagicMock,
     ) -> None:
         """Test successful task creation returns 200."""
@@ -367,7 +367,7 @@ class TestLambdaHandler:
     @mock_aws
     def test_response_includes_cors_headers(
         self,
-        api_gateway_event: Dict[str, Any],
+        api_gateway_event: dict[str, Any],
         lambda_context: MagicMock,
     ) -> None:
         """Test response includes proper CORS headers."""

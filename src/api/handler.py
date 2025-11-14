@@ -7,8 +7,8 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import boto3
 from botocore.exceptions import ClientError
@@ -33,7 +33,7 @@ def get_sqs_client():
     return _sqs_client
 
 
-def validate_task(task_data: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+def validate_task(task_data: dict[str, Any]) -> tuple[bool, str | None]:
     """
     Validate task data according to requirements.
 
@@ -89,7 +89,7 @@ def validate_task(task_data: Dict[str, Any]) -> tuple[bool, Optional[str]]:
     return True, None
 
 
-def sanitize_task(task_data: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_task(task_data: dict[str, Any]) -> dict[str, Any]:
     """
     Sanitize task data by removing potentially harmful content.
 
@@ -111,7 +111,7 @@ def sanitize_task(task_data: Dict[str, Any]) -> Dict[str, Any]:
     return sanitized
 
 
-def send_to_queue(task_data: Dict[str, Any]) -> str:
+def send_to_queue(task_data: dict[str, Any]) -> str:
     """
     Send validated task to SQS FIFO queue with ordering guarantees.
 
@@ -129,7 +129,7 @@ def send_to_queue(task_data: Dict[str, Any]) -> str:
     # Add metadata
     message_body = {
         "task_id": task_id,
-        "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         **task_data,
     }
 
@@ -143,6 +143,7 @@ def send_to_queue(task_data: Dict[str, Any]) -> str:
             MessageGroupId="task-processing",  # Single group for strict ordering
             MessageDeduplicationId=task_id,  # Prevent duplicates
         )
+        logger.debug(f"SQS send response: {response['MessageId']}")
 
         logger.info(f"Task {task_id} sent to queue successfully")
         return task_id
@@ -153,8 +154,8 @@ def send_to_queue(task_data: Dict[str, Any]) -> str:
 
 
 def create_response(
-    status_code: int, body: Dict[str, Any], headers: Optional[Dict[str, str]] = None
-) -> Dict[str, Any]:
+    status_code: int, body: dict[str, Any], headers: dict[str, str] | None = None
+) -> dict[str, Any]:
     """
     Create API Gateway response with proper headers.
 
@@ -183,7 +184,7 @@ def create_response(
     }
 
 
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
     AWS Lambda handler for task creation endpoint.
 

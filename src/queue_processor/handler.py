@@ -6,7 +6,7 @@ Processes tasks from SQS FIFO queue with ordering guarantees and retry logic.
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Configure logging
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
@@ -20,7 +20,7 @@ class ProcessingError(Exception):
     pass
 
 
-def process_task(task_data: Dict[str, Any]) -> Dict[str, Any]:
+def process_task(task_data: dict[str, Any]) -> dict[str, Any]:
     """
     Process a single task with business logic.
     This is idempotent to handle potential duplicate deliveries.
@@ -70,7 +70,7 @@ def process_task(task_data: Dict[str, Any]) -> Dict[str, Any]:
         raise ProcessingError(f"Failed to process task: {str(e)}") from e
 
 
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
     AWS Lambda handler for SQS FIFO queue processing.
     Implements partial batch failure reporting for better retry handling.
@@ -84,13 +84,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     logger.info(f"Processing batch of {len(event.get('Records', []))} messages")
 
-    batch_item_failures: List[Dict[str, str]] = []
+    batch_item_failures: list[dict[str, str]] = []
 
     for record in event.get("Records", []):
         message_id = record.get("messageId")
         receipt_handle = record.get("receiptHandle")
 
         try:
+            logger.debug(
+                f"Processing message {message_id} with receipt {receipt_handle}"
+            )
             # Parse message body
             body = record.get("body", "{}")
             if isinstance(body, str):

@@ -3,7 +3,6 @@ Pytest configuration and shared fixtures.
 """
 
 import os
-import sys
 
 import pytest
 

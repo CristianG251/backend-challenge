@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  # Job 1: Run Python tests
+# Job 1: Run Python tests
   test-python:
     name: Python Tests
     runs-on: ubuntu-latest
@@ -27,17 +27,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
       
-      - name: Run unit tests
+      - name: Run all tests with coverage
         run: |
-          pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing
-      
-      - name: Run integration tests
-        run: |
-          pytest tests/integration/ -v
-      
-      - name: Check code coverage
-        run: |
-          pytest --cov=src --cov-report=term-missing --cov-fail-under=90
+          pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90
       
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
@@ -46,7 +38,7 @@ jobs:
           files: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
-  
+
   # Job 2: Code quality checks
   code-quality:
     name: Code Quality

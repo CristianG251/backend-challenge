@@ -5,7 +5,7 @@ Tests task processing, error handling, and retry logic.
 
 import json
 import os
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,7 +22,7 @@ from src.queue_processor import handler
 
 
 @pytest.fixture
-def valid_task_data() -> Dict[str, Any]:
+def valid_task_data() -> dict[str, Any]:
     """Fixture providing valid task data."""
     return {
         "task_id": "12345678-1234-1234-1234-123456789012",
@@ -34,7 +34,7 @@ def valid_task_data() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def sqs_record(valid_task_data: Dict[str, Any]) -> Dict[str, Any]:
+def sqs_record(valid_task_data: dict[str, Any]) -> dict[str, Any]:
     """Fixture providing SQS record."""
     return {
         "messageId": "msg-123",
@@ -55,7 +55,7 @@ def sqs_record(valid_task_data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @pytest.fixture
-def sqs_event(sqs_record: Dict[str, Any]) -> Dict[str, Any]:
+def sqs_event(sqs_record: dict[str, Any]) -> dict[str, Any]:
     """Fixture providing SQS event with single record."""
     return {"Records": [sqs_record]}
 
@@ -74,7 +74,7 @@ def lambda_context() -> MagicMock:
 class TestProcessTask:
     """Tests for task processing function."""
 
-    def test_process_valid_task(self, valid_task_data: Dict[str, Any]) -> None:
+    def test_process_valid_task(self, valid_task_data: dict[str, Any]) -> None:
         """Test processing a valid task succeeds."""
         result = handler.process_task(valid_task_data)
         assert result["task_id"] == valid_task_data["task_id"]
@@ -92,7 +92,7 @@ class TestProcessTask:
             handler.process_task(task_data)
         assert "missing required field" in str(exc_info.value).lower()
 
-    def test_process_task_is_idempotent(self, valid_task_data: Dict[str, Any]) -> None:
+    def test_process_task_is_idempotent(self, valid_task_data: dict[str, Any]) -> None:
         """Test processing same task twice produces same result."""
         result1 = handler.process_task(valid_task_data)
         result2 = handler.process_task(valid_task_data)
@@ -117,7 +117,7 @@ class TestLambdaHandler:
 
     def test_successful_batch_processing(
         self,
-        sqs_event: Dict[str, Any],
+        sqs_event: dict[str, Any],
         lambda_context: MagicMock,
     ) -> None:
         """Test successful processing of all messages in batch."""
@@ -128,7 +128,7 @@ class TestLambdaHandler:
 
     def test_multiple_messages_in_batch(
         self,
-        sqs_record: Dict[str, Any],
+        sqs_record: dict[str, Any],
         lambda_context: MagicMock,
     ) -> None:
         """Test processing multiple messages in a batch."""
@@ -185,7 +185,7 @@ class TestLambdaHandler:
 
     def test_partial_batch_failure(
         self,
-        valid_task_data: Dict[str, Any],
+        valid_task_data: dict[str, Any],
         lambda_context: MagicMock,
     ) -> None:
         """Test partial batch failure reports only failed messages."""
@@ -220,7 +220,7 @@ class TestLambdaHandler:
 
     def test_ordering_maintained_in_processing(
         self,
-        valid_task_data: Dict[str, Any],
+        valid_task_data: dict[str, Any],
         lambda_context: MagicMock,
     ) -> None:
         """Test messages are processed in order they appear in batch."""

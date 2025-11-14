@@ -5,7 +5,6 @@ Tests end-to-end flow from API to queue processing.
 
 import json
 import os
-from typing import Any, Dict
 from unittest.mock import MagicMock
 
 import boto3
@@ -161,7 +160,6 @@ class TestEndToEndFlow:
         os.environ["DLQ_URL"] = dlq_url
 
         from src.api import handler as api_handler
-        from src.queue_processor import handler as processor_handler
 
         api_handler._sqs_client = None
 
