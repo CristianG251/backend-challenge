@@ -11,7 +11,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Set environment variables before importing handler
-os.environ["TASK_QUEUE_URL"] = "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue.fifo"
+os.environ["TASK_QUEUE_URL"] = (
+    "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue.fifo"
+)
 os.environ["DLQ_URL"] = "https://sqs.us-east-1.amazonaws.com/123456789012/test-dlq.fifo"
 os.environ["LOG_LEVEL"] = "DEBUG"
 
@@ -71,14 +73,14 @@ def lambda_context() -> MagicMock:
 
 class TestProcessTask:
     """Tests for task processing function."""
-    
+
     def test_process_valid_task(self, valid_task_data: Dict[str, Any]) -> None:
         """Test processing a valid task succeeds."""
         result = handler.process_task(valid_task_data)
         assert result["task_id"] == valid_task_data["task_id"]
         assert result["status"] == "completed"
         assert "message" in result
-    
+
     def test_process_task_missing_required_field(self) -> None:
         """Test processing fails when required field is missing."""
         task_data = {
@@ -89,13 +91,13 @@ class TestProcessTask:
         with pytest.raises(handler.ProcessingError) as exc_info:
             handler.process_task(task_data)
         assert "missing required field" in str(exc_info.value).lower()
-    
+
     def test_process_task_is_idempotent(self, valid_task_data: Dict[str, Any]) -> None:
         """Test processing same task twice produces same result."""
         result1 = handler.process_task(valid_task_data)
         result2 = handler.process_task(valid_task_data)
         assert result1 == result2
-    
+
     def test_process_task_with_due_date(self) -> None:
         """Test processing task with optional due_date."""
         task_data = {
@@ -112,7 +114,7 @@ class TestProcessTask:
 
 class TestLambdaHandler:
     """Tests for Lambda handler function."""
-    
+
     def test_successful_batch_processing(
         self,
         sqs_event: Dict[str, Any],
@@ -120,10 +122,10 @@ class TestLambdaHandler:
     ) -> None:
         """Test successful processing of all messages in batch."""
         response = handler.lambda_handler(sqs_event, lambda_context)
-        
+
         assert "batchItemFailures" in response
         assert len(response["batchItemFailures"]) == 0
-    
+
     def test_multiple_messages_in_batch(
         self,
         sqs_record: Dict[str, Any],
@@ -138,10 +140,10 @@ class TestLambdaHandler:
                 {**sqs_record, "messageId": "msg-789"},
             ]
         }
-        
+
         response = handler.lambda_handler(event, lambda_context)
         assert len(response["batchItemFailures"]) == 0
-    
+
     def test_invalid_json_causes_failure(self, lambda_context: MagicMock) -> None:
         """Test invalid JSON in message body causes batch item failure."""
         event = {
@@ -153,11 +155,11 @@ class TestLambdaHandler:
                 }
             ]
         }
-        
+
         response = handler.lambda_handler(event, lambda_context)
         assert len(response["batchItemFailures"]) == 1
         assert response["batchItemFailures"][0]["itemIdentifier"] == "msg-123"
-    
+
     def test_missing_required_field_causes_failure(
         self, lambda_context: MagicMock
     ) -> None:
@@ -176,11 +178,11 @@ class TestLambdaHandler:
                 }
             ]
         }
-        
+
         response = handler.lambda_handler(event, lambda_context)
         assert len(response["batchItemFailures"]) == 1
         assert response["batchItemFailures"][0]["itemIdentifier"] == "msg-123"
-    
+
     def test_partial_batch_failure(
         self,
         valid_task_data: Dict[str, Any],
@@ -188,7 +190,7 @@ class TestLambdaHandler:
     ) -> None:
         """Test partial batch failure reports only failed messages."""
         invalid_task_data = {"task_id": "invalid"}  # Missing required fields
-        
+
         event = {
             "Records": [
                 {
@@ -203,19 +205,19 @@ class TestLambdaHandler:
                 },
             ]
         }
-        
+
         response = handler.lambda_handler(event, lambda_context)
-        
+
         # Should have exactly 1 failure
         assert len(response["batchItemFailures"]) == 1
         assert response["batchItemFailures"][0]["itemIdentifier"] == "msg-failure"
-    
+
     def test_empty_records_list(self, lambda_context: MagicMock) -> None:
         """Test handling empty records list."""
         event = {"Records": []}
         response = handler.lambda_handler(event, lambda_context)
         assert response["batchItemFailures"] == []
-    
+
     def test_ordering_maintained_in_processing(
         self,
         valid_task_data: Dict[str, Any],
@@ -229,7 +231,7 @@ class TestLambdaHandler:
             task["task_id"] = f"task-{i}"
             task["title"] = f"Task {i}"
             tasks.append(task)
-        
+
         event = {
             "Records": [
                 {
@@ -240,7 +242,7 @@ class TestLambdaHandler:
                 for i, task in enumerate(tasks)
             ]
         }
-        
+
         response = handler.lambda_handler(event, lambda_context)
         # All should succeed
         assert len(response["batchItemFailures"]) == 0
@@ -248,16 +250,14 @@ class TestLambdaHandler:
 
 class TestErrorHandling:
     """Tests for error handling and retry logic."""
-    
+
     def test_processing_error_raised_correctly(self) -> None:
         """Test ProcessingError is raised with correct message."""
         with pytest.raises(handler.ProcessingError) as exc_info:
             raise handler.ProcessingError("Test error")
         assert "Test error" in str(exc_info.value)
-    
-    def test_unexpected_exception_wrapped(
-        self, lambda_context: MagicMock
-    ) -> None:
+
+    def test_unexpected_exception_wrapped(self, lambda_context: MagicMock) -> None:
         """Test unexpected exceptions are caught and reported."""
         event = {
             "Records": [
@@ -268,7 +268,7 @@ class TestErrorHandling:
                 }
             ]
         }
-        
+
         # This will cause a ProcessingError due to missing fields
         response = handler.lambda_handler(event, lambda_context)
         assert len(response["batchItemFailures"]) == 1
@@ -291,7 +291,7 @@ class TestAdditionalErrorHandling:
 
         # Patch the validation loop to raise an unexpected exception
         # This happens inside the try block so it will be caught and wrapped
-        with patch.object(handler, 'logger') as mock_logger:
+        with patch.object(handler, "logger") as mock_logger:
             # Make the first logger.info call work, but the second one (after validation) fail
             mock_logger.info.side_effect = [None, RuntimeError("Unexpected error")]
 
@@ -299,32 +299,36 @@ class TestAdditionalErrorHandling:
                 handler.process_task(task_data)
 
             assert "Failed to process task" in str(exc_info.value)
-    
+
     def test_lambda_handler_handles_unexpected_exceptions_in_batch(self) -> None:
         """Test that unexpected exceptions in message processing are caught."""
         context = MagicMock()
-        
+
         # Create an event with a message that will cause an unexpected error
         event = {
             "Records": [
                 {
                     "messageId": "msg-123",
                     "receiptHandle": "receipt-123",
-                    "body": json.dumps({
-                        "task_id": "test-id",
-                        "title": "Test",
-                        "description": "Test",
-                        "priority": "high",
-                        "created_at": "2025-11-13T10:00:00Z",
-                    }),
+                    "body": json.dumps(
+                        {
+                            "task_id": "test-id",
+                            "title": "Test",
+                            "description": "Test",
+                            "priority": "high",
+                            "created_at": "2025-11-13T10:00:00Z",
+                        }
+                    ),
                 }
             ]
         }
-        
+
         # Patch process_task to raise an unexpected exception
-        with patch.object(handler, 'process_task', side_effect=RuntimeError("Unexpected error")):
+        with patch.object(
+            handler, "process_task", side_effect=RuntimeError("Unexpected error")
+        ):
             response = handler.lambda_handler(event, context)
-            
+
             # Should report the message as failed
             assert len(response["batchItemFailures"]) == 1
             assert response["batchItemFailures"][0]["itemIdentifier"] == "msg-123"

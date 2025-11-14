@@ -14,7 +14,9 @@ from moto import mock_aws
 import boto3
 
 # Set environment variables before importing handler
-os.environ["TASK_QUEUE_URL"] = "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue.fifo"
+os.environ["TASK_QUEUE_URL"] = (
+    "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue.fifo"
+)
 os.environ["LOG_LEVEL"] = "DEBUG"
 
 # Import after setting env vars
@@ -56,13 +58,13 @@ def lambda_context() -> MagicMock:
 
 class TestValidateTask:
     """Tests for task validation function."""
-    
+
     def test_valid_task_with_all_fields(self, valid_task_data: Dict[str, Any]) -> None:
         """Test validation passes for task with all fields."""
         is_valid, error = handler.validate_task(valid_task_data)
         assert is_valid is True
         assert error is None
-    
+
     def test_valid_task_without_due_date(self) -> None:
         """Test validation passes for task without optional due_date."""
         task_data = {
@@ -73,7 +75,7 @@ class TestValidateTask:
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is True
         assert error is None
-    
+
     def test_missing_title(self) -> None:
         """Test validation fails when title is missing."""
         task_data = {
@@ -83,7 +85,7 @@ class TestValidateTask:
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
         assert "title" in error.lower()
-    
+
     def test_missing_description(self) -> None:
         """Test validation fails when description is missing."""
         task_data = {
@@ -93,7 +95,7 @@ class TestValidateTask:
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
         assert "description" in error.lower()
-    
+
     def test_missing_priority(self) -> None:
         """Test validation fails when priority is missing."""
         task_data = {
@@ -103,7 +105,7 @@ class TestValidateTask:
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
         assert "priority" in error.lower()
-    
+
     def test_empty_title(self) -> None:
         """Test validation fails for empty title."""
         task_data = {
@@ -114,7 +116,7 @@ class TestValidateTask:
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
         assert "empty" in error.lower()
-    
+
     def test_title_too_long(self) -> None:
         """Test validation fails for title exceeding 200 characters."""
         task_data = {
@@ -125,7 +127,7 @@ class TestValidateTask:
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
         assert "200" in error
-    
+
     def test_description_too_long(self) -> None:
         """Test validation fails for description exceeding 2000 characters."""
         task_data = {
@@ -136,7 +138,7 @@ class TestValidateTask:
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
         assert "2000" in error
-    
+
     def test_invalid_priority(self) -> None:
         """Test validation fails for invalid priority value."""
         task_data = {
@@ -147,7 +149,7 @@ class TestValidateTask:
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
         assert "priority" in error.lower()
-    
+
     def test_invalid_due_date_format(self) -> None:
         """Test validation fails for invalid due_date format."""
         task_data = {
@@ -159,7 +161,7 @@ class TestValidateTask:
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
         assert "iso 8601" in error.lower()
-    
+
     def test_title_not_string(self) -> None:
         """Test validation fails when title is not a string."""
         task_data = {
@@ -174,7 +176,7 @@ class TestValidateTask:
 
 class TestSanitizeTask:
     """Tests for task sanitization function."""
-    
+
     def test_sanitize_removes_whitespace(self) -> None:
         """Test sanitization removes leading/trailing whitespace."""
         task_data = {
@@ -186,7 +188,7 @@ class TestSanitizeTask:
         assert sanitized["title"] == "Test Task"
         assert sanitized["description"] == "Test description"
         assert sanitized["priority"] == "high"
-    
+
     def test_sanitize_lowercase_priority(self) -> None:
         """Test sanitization converts priority to lowercase."""
         task_data = {
@@ -196,7 +198,7 @@ class TestSanitizeTask:
         }
         sanitized = handler.sanitize_task(task_data)
         assert sanitized["priority"] == "high"
-    
+
     def test_sanitize_with_due_date(self) -> None:
         """Test sanitization preserves due_date when present."""
         task_data = {
@@ -208,7 +210,7 @@ class TestSanitizeTask:
         sanitized = handler.sanitize_task(task_data)
         assert "due_date" in sanitized
         assert sanitized["due_date"] == "2025-12-31T23:59:59Z"
-    
+
     def test_sanitize_without_due_date(self) -> None:
         """Test sanitization works without due_date."""
         task_data = {
@@ -222,7 +224,7 @@ class TestSanitizeTask:
 
 class TestSendToQueue:
     """Tests for sending tasks to SQS queue."""
-    
+
     @mock_aws
     def test_send_to_queue_success(self, valid_task_data: Dict[str, Any]) -> None:
         """Test successfully sending task to queue."""
@@ -236,15 +238,15 @@ class TestSendToQueue:
             },
         )
         os.environ["TASK_QUEUE_URL"] = response["QueueUrl"]
-        
+
         # Reset the SQS client in handler to use mocked one
         handler._sqs_client = None
-        
+
         # Test send to queue
         task_id = handler.send_to_queue(valid_task_data)
         assert task_id is not None
         assert len(task_id) == 36  # UUID length
-    
+
     @mock_aws
     def test_send_to_queue_includes_metadata(
         self, valid_task_data: Dict[str, Any]
@@ -260,18 +262,18 @@ class TestSendToQueue:
             },
         )
         os.environ["TASK_QUEUE_URL"] = response["QueueUrl"]
-        
+
         # Reset the SQS client in handler to use mocked one
         handler._sqs_client = None
-        
+
         # Send task
         task_id = handler.send_to_queue(valid_task_data)
-        
+
         # Receive message from queue
         messages = sqs.receive_message(
             QueueUrl=os.environ["TASK_QUEUE_URL"], MaxNumberOfMessages=1
         )
-        
+
         assert "Messages" in messages
         message_body = json.loads(messages["Messages"][0]["Body"])
         assert message_body["task_id"] == task_id
@@ -281,7 +283,7 @@ class TestSendToQueue:
 
 class TestLambdaHandler:
     """Tests for Lambda handler function."""
-    
+
     @mock_aws
     def test_successful_task_creation(
         self,
@@ -299,19 +301,19 @@ class TestLambdaHandler:
             },
         )
         os.environ["TASK_QUEUE_URL"] = response["QueueUrl"]
-        
+
         # Reset the SQS client in handler to use mocked one
         handler._sqs_client = None
-        
+
         # Test handler
         response = handler.lambda_handler(api_gateway_event, lambda_context)
-        
+
         assert response["statusCode"] == 200
         body = json.loads(response["body"])
         assert "task_id" in body
         assert body["message"] == "Task created successfully"
         assert body["status"] == "queued"
-    
+
     @mock_aws
     def test_invalid_json_returns_400(self, lambda_context: MagicMock) -> None:
         """Test invalid JSON returns 400 error."""
@@ -319,45 +321,49 @@ class TestLambdaHandler:
             "body": "invalid json{{{",
         }
         response = handler.lambda_handler(event, lambda_context)
-        
+
         assert response["statusCode"] == 400
         body = json.loads(response["body"])
         assert "error" in body
-    
+
     @mock_aws
     def test_missing_required_field_returns_400(
         self, lambda_context: MagicMock
     ) -> None:
         """Test missing required field returns 400 error."""
         event = {
-            "body": json.dumps({
-                "title": "Test Task",
-                # Missing description and priority
-            }),
+            "body": json.dumps(
+                {
+                    "title": "Test Task",
+                    # Missing description and priority
+                }
+            ),
         }
         response = handler.lambda_handler(event, lambda_context)
-        
+
         assert response["statusCode"] == 400
         body = json.loads(response["body"])
         assert "error" in body
-    
+
     @mock_aws
     def test_invalid_priority_returns_400(self, lambda_context: MagicMock) -> None:
         """Test invalid priority value returns 400 error."""
         event = {
-            "body": json.dumps({
-                "title": "Test Task",
-                "description": "Test description",
-                "priority": "invalid",
-            }),
+            "body": json.dumps(
+                {
+                    "title": "Test Task",
+                    "description": "Test description",
+                    "priority": "invalid",
+                }
+            ),
         }
         response = handler.lambda_handler(event, lambda_context)
-        
+
         assert response["statusCode"] == 400
         body = json.loads(response["body"])
         assert "error" in body
         assert "priority" in body["error"].lower()
-    
+
     @mock_aws
     def test_response_includes_cors_headers(
         self,
@@ -375,13 +381,13 @@ class TestLambdaHandler:
             },
         )
         os.environ["TASK_QUEUE_URL"] = response["QueueUrl"]
-        
+
         # Reset the SQS client in handler to use mocked one
         handler._sqs_client = None
-        
+
         # Test handler
         response = handler.lambda_handler(api_gateway_event, lambda_context)
-        
+
         assert "headers" in response
         assert "Access-Control-Allow-Origin" in response["headers"]
         assert response["headers"]["Content-Type"] == "application/json"
@@ -396,7 +402,9 @@ class TestErrorHandling:
         # This will cause send_message to fail with ClientError
 
         # Set a non-existent queue URL
-        os.environ["TASK_QUEUE_URL"] = "https://sqs.us-east-1.amazonaws.com/123456789012/nonexistent-queue.fifo"
+        os.environ["TASK_QUEUE_URL"] = (
+            "https://sqs.us-east-1.amazonaws.com/123456789012/nonexistent-queue.fifo"
+        )
 
         # Reset the client so it picks up the new URL
         handler._sqs_client = None
@@ -412,49 +420,59 @@ class TestErrorHandling:
             handler.send_to_queue(task_data)
 
         # Verify it's the right kind of error
-        assert "NonExistentQueue" in str(exc_info.value) or "QueueDoesNotExist" in str(exc_info.value)
-    
-    @mock_aws  
+        assert "NonExistentQueue" in str(exc_info.value) or "QueueDoesNotExist" in str(
+            exc_info.value
+        )
+
+    @mock_aws
     def test_lambda_handler_handles_sqs_client_error(self) -> None:
         """Test lambda_handler returns 500 when SQS fails."""
         # Don't create a queue - this will cause send_to_queue to fail
-        os.environ["TASK_QUEUE_URL"] = "https://sqs.us-east-1.amazonaws.com/123456789012/nonexistent-queue.fifo"
+        os.environ["TASK_QUEUE_URL"] = (
+            "https://sqs.us-east-1.amazonaws.com/123456789012/nonexistent-queue.fifo"
+        )
         handler._sqs_client = None
-        
+
         context = MagicMock()
         event = {
-            "body": json.dumps({
-                "title": "Test Task",
-                "description": "Test description",
-                "priority": "high",
-            }),
+            "body": json.dumps(
+                {
+                    "title": "Test Task",
+                    "description": "Test description",
+                    "priority": "high",
+                }
+            ),
         }
-        
+
         response = handler.lambda_handler(event, context)
-        
+
         # Should return 500 error
         assert response["statusCode"] == 500
         body = json.loads(response["body"])
         assert "error" in body
         assert "Failed to process task" in body["error"]
-    
+
     @mock_aws
     def test_lambda_handler_handles_unexpected_exception(self) -> None:
         """Test lambda_handler handles unexpected exceptions."""
         context = MagicMock()
-        
+
         # Patch validate_task to raise an unexpected exception
-        with patch.object(handler, 'validate_task', side_effect=RuntimeError("Unexpected error")):
+        with patch.object(
+            handler, "validate_task", side_effect=RuntimeError("Unexpected error")
+        ):
             event = {
-                "body": json.dumps({
-                    "title": "Test Task",
-                    "description": "Test description",
-                    "priority": "high",
-                }),
+                "body": json.dumps(
+                    {
+                        "title": "Test Task",
+                        "description": "Test description",
+                        "priority": "high",
+                    }
+                ),
             }
-            
+
             response = handler.lambda_handler(event, context)
-            
+
             # Should return 500 error
             assert response["statusCode"] == 500
             body = json.loads(response["body"])
