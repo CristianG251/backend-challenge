@@ -84,7 +84,7 @@ class TestValidateTask:
         }
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
-        assert "title" in error.lower()
+        assert error is not None and "title" in error.lower()
 
     def test_missing_description(self) -> None:
         """Test validation fails when description is missing."""
@@ -94,7 +94,7 @@ class TestValidateTask:
         }
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
-        assert "description" in error.lower()
+        assert error is not None and "description" in error.lower()
 
     def test_missing_priority(self) -> None:
         """Test validation fails when priority is missing."""
@@ -104,7 +104,7 @@ class TestValidateTask:
         }
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
-        assert "priority" in error.lower()
+        assert error is not None and "priority" in error.lower()
 
     def test_empty_title(self) -> None:
         """Test validation fails for empty title."""
@@ -115,7 +115,7 @@ class TestValidateTask:
         }
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
-        assert "empty" in error.lower()
+        assert error is not None and "empty" in error.lower()
 
     def test_title_too_long(self) -> None:
         """Test validation fails for title exceeding 200 characters."""
@@ -126,7 +126,7 @@ class TestValidateTask:
         }
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
-        assert "200" in error
+        assert error is not None and "200" in error
 
     def test_description_too_long(self) -> None:
         """Test validation fails for description exceeding 2000 characters."""
@@ -137,7 +137,7 @@ class TestValidateTask:
         }
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
-        assert "2000" in error
+        assert error is not None and "2000" in error
 
     def test_invalid_priority(self) -> None:
         """Test validation fails for invalid priority value."""
@@ -148,7 +148,7 @@ class TestValidateTask:
         }
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
-        assert "priority" in error.lower()
+        assert error is not None and "priority" in error.lower()
 
     def test_invalid_due_date_format(self) -> None:
         """Test validation fails for invalid due_date format."""
@@ -160,7 +160,7 @@ class TestValidateTask:
         }
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
-        assert "iso 8601" in error.lower()
+        assert error is not None and "iso 8601" in error.lower()
 
     def test_title_not_string(self) -> None:
         """Test validation fails when title is not a string."""
@@ -171,7 +171,7 @@ class TestValidateTask:
         }
         is_valid, error = handler.validate_task(task_data)
         assert is_valid is False
-        assert "string" in error.lower()
+        assert error is not None and "string" in error.lower()
 
 
 class TestSanitizeTask:
